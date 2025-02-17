@@ -1,4 +1,4 @@
-import { useState, memo, useCallback } from 'react';
+import { useState, memo, useCallback, lazy, Suspense } from 'react';
 import { 
   Home, Calendar, Bell, Search, X, Settings, Users, LogOut,
   User, ChevronRight, BarChart2, CheckCircle2, Clock, AlertCircle,
@@ -8,8 +8,12 @@ import {
 import { useTheme } from '../../hooks/useTheme';
 import type { NavPage } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { StudyMaterialsModal } from '../study-materials/StudyMaterialsModal';
 import { useCourses } from '../../hooks/useCourses';
+
+// Lazy load the StudyMaterialsModal component
+const StudyMaterialsModal = lazy(() => import('../study-materials/StudyMaterialsModal').then(module => ({ 
+  default: module.StudyMaterialsModal 
+})));
 
 interface SlidingNavigationProps {
   isOpen: boolean;
@@ -37,13 +41,17 @@ const NavItem = memo(({ item, isActive, onClick, showSubmenu, onSubmenuToggle })
     whileTap={{ scale: 0.98 }}
     className={`
       w-full px-3 py-2 rounded-lg flex items-center justify-between
-      transition-all duration-200 ease-in-out text-sm
+      transition-colors duration-200 ease-in-out text-sm
       group relative overflow-hidden
       ${isActive 
         ? 'bg-gradient-to-r from-blue-50/90 to-blue-100/90 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-600 dark:text-blue-400 shadow-sm' 
         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/40'
       }
     `}
+    style={{
+      willChange: 'transform',
+      transform: 'translateZ(0)',
+    }}
   >
     <div className="flex items-center gap-2.5 relative z-10">
       <motion.div
@@ -124,24 +132,35 @@ export const SlidingNavigation = memo(function SlidingNavigation({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15 }}
               className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm z-[100]"
               onClick={onClose}
-              style={{ contain: 'strict' }}
+              style={{ 
+                contain: 'strict',
+                willChange: 'opacity',
+                backfaceVisibility: 'hidden'
+              }}
             />
 
             <motion.div 
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              transition={{ 
+                type: 'spring', 
+                damping: 30, 
+                stiffness: 350,
+                mass: 0.8
+              }}
               className="fixed top-0 left-0 h-[100dvh] w-[85vw] sm:w-[300px] max-w-[320px] 
                 bg-white/95 dark:bg-gray-900/95 shadow-2xl z-[101] flex flex-col overflow-hidden
                 backdrop-blur-md backdrop-saturate-150
                 border-r border-gray-200/50 dark:border-gray-800/50"
               style={{ 
                 contain: 'content',
-                willChange: 'transform'
+                willChange: 'transform',
+                transform: 'translateZ(0)',
+                backfaceVisibility: 'hidden'
               }}
             >
               <div className="flex-shrink-0 p-4 sm:p-5 bg-gradient-to-br from-blue-600/95 via-blue-500/95 to-indigo-600/95 backdrop-blur-sm shadow-lg" style={{ contain: 'content' }}>
@@ -357,14 +376,16 @@ export const SlidingNavigation = memo(function SlidingNavigation({
         )}
       </AnimatePresence>
 
-      <StudyMaterialsModal
-        isOpen={showMaterialsModal}
-        onClose={() => setShowMaterialsModal(false)}
-        category={selectedCategory}
-        materials={materials?.filter(m => 
-          m.category.toLowerCase() === selectedCategory.toLowerCase()
+      <Suspense fallback={null}>
+        {showMaterialsModal && (
+          <StudyMaterialsModal
+            isOpen={showMaterialsModal}
+            onClose={() => setShowMaterialsModal(false)}
+            selectedCategory={selectedCategory}
+            materials={materials}
+          />
         )}
-      />
+      </Suspense>
     </>
   );
 });
